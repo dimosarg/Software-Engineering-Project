@@ -2,8 +2,8 @@ import calcs
 import visualization as vis
 import numpy as np
 
-#Download time series data from a npy file
-all_data = np.load("btc-usd.npy")
+#Download time series data from a npy file.
+all_data = np.load("btc-usd.npy", allow_pickle=True)
 
 #Select only one column
 data = all_data[:,1:2]
