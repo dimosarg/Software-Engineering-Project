@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>891</width>
-    <height>596</height>
+    <width>952</width>
+    <height>609</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -63,6 +63,60 @@
     </layout>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_7">
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Option 1: Download Market Data</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <item>
+      <widget class="QLineEdit" name="data_collection">
+       <property name="placeholderText">
+        <string>Type a symbol to download data(e.g., AAPL, TSLA, MSFT, etc...)</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_generate_values">
+       <property name="text">
+        <string>Download data</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_8">
+     <item>
+      <widget class="QLabel" name="label_5">
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Option 2: Import Local File</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout_5">
      <item>
       <widget class="QLabel" name="label_4">
@@ -83,7 +137,7 @@
         <bool>false</bool>
        </property>
        <property name="placeholderText">
-        <string>Please select a csv file to check outlayers of the graph</string>
+        <string>Please select a npy/xlsx/csv file to check outlayers of the graph</string>
        </property>
       </widget>
      </item>
