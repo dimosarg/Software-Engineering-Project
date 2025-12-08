@@ -1,11 +1,28 @@
-# WarningSE: Financial Outlier Detection Tool
+# 📈 Financial Outlier Detection System
 
-**WarningSE** is a desktop application designed to analyze financial time-series data and detect statistical outliers (anomalies). Built with **Python** and **PyQt5**, it offers a user-friendly interface to visualize stock price evolution and automatically highlight irregular price movements.
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue) ![PyQt5](https://img.shields.io/badge/GUI-PyQt5-green) ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+
+A desktop application designed to analyze financial time-series data and automatically detect statistical outliers (anomalies). Built with **Python** and **PyQt5**, this tool allows traders and analysts to visualize price trends and spot irregularities using Yahoo Finance data or local datasets.
 
 ## 🚀 Features
 
-* **Dual Data Import:**
-    * **Yahoo Finance API:** Directly download historical stock data by entering a ticker symbol (e.g., AAPL, TSLA).
-    * **Local Files:** Import your own datasets via CSV, Excel (`.xlsx`), or NumPy (`.npy`) files.
-* **Interactive Visualization:** Renders high-quality plots using Matplotlib within the GUI.
-* **Anomaly Detection:** Automatically identifies and highlights outliers in red based on statistical deviation
+* **Dual Input Methods:**
+    * **Live Data:** Download real-time historical data directly from Yahoo Finance (e.g., AAPL, TSLA).
+    * **Local Files:** Support for `.csv`, `.xlsx`, `.xls`, and `.npy` files.
+* **Visual Analysis:** Interactive **Matplotlib** integration to display price history trends.
+* **Anomaly Detection:** Automatically highlights statistical outliers in **Red** for instant identification.
+* **Export Capabilities:** Save your analysis graphs as high-quality PNG images.
+* **User-Friendly Interface:** Clean GUI built with PyQt5.
+
+---
+
+## 📦 Installation & Setup
+
+### 1. Prerequisites
+Ensure you have Python 3.8 or higher installed on your system.
+
+### 2. Install Dependencies
+You need to install the required Python libraries to run the application. Open your terminal or command prompt and run:
+
+```bash
+pip install numpy pandas yfinance PyQt5 matplotlib openpyxl
