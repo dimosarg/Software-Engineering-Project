@@ -140,7 +140,9 @@ class WarningSEApp(QtWidgets.QDialog):
         if self.data is not None:
             data_col = self.data[:, 1:2]
 
-            self.labels = calcs.calculations(data=data_col, std_multiplier=2.5)
+            self.my_data = calcs.clean_data(data = data_col) 
+
+            self.labels, self.upper, self.bottom = calcs.calculations(data=data_col, std_multiplier=2.5)
 
             # Clear previous graph
             if self.canvas is not None:
@@ -176,6 +178,9 @@ class WarningSEApp(QtWidgets.QDialog):
         # 1. PLOT PRICE LINE (Trend)
         # We use plot instead of scatter to connect the points
         ax.plot(x_data, data_col, color='#1f77b4', linewidth=1.5, label='Price History', alpha=0.8)
+        # Plot of buffer zones
+        ax.plot(x_data, self.upper, color= '#72bf6a', linewidth=1, label='Upper buffer zone', alpha=0.4)
+        ax.plot(x_data, self.bottom, color= '#ED2939', linewidth=1, label='Bottom buffer zone', alpha=0.4)
 
         # 2. PLOT ONLY OUTLIERS (Red Points)
         # Filter to get only the indices where label == 1
