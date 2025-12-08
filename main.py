@@ -10,6 +10,7 @@ from matplotlib.figure import Figure
 import calcs
 
 
+
 class WarningSEApp(QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
@@ -49,19 +50,27 @@ class WarningSEApp(QtWidgets.QDialog):
 
     def download_data_from_yahoo(self):
         """Robust download method compatible with new yfinance versions"""
-
+        
         # 1. Read ticker
-        ticker = self.data_collection.text().strip().upper()
-
-        if not ticker:
+        
+        #ticker = self.data_collection.text().strip().upper()
+        tickers_text = self.data_collection.text().strip().upper()
+        if not tickers_text:
             QtWidgets.QMessageBox.warning(self, "Error", "Please enter a ticker symbol (e.g. AAPL)")
             return
+        
+        tickers = tickers_text.replace(',', ' ').split()
+        unique_tickers = set(tickers)
+        print(len(tickers))
+        count = len(unique_tickers)
+        if count > 1:
+            QtWidgets.QMessageBox.warning(self,"The amount of tickers is more than 1"f' :{len(tickers)}', f'Using: {tickers[0]}')
 
         try:
-            print(f"--- Starting download for: {ticker} ---")
+            print(f"--- Starting download for: {tickers[0]} ---")
 
             # 2. Download
-            df = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
+            df = yf.download(tickers[0], period="1y", interval="1d", progress=False, auto_adjust=True)
 
             print("Download completed by yfinance.")
             print(f"Data dimensions: {df.shape}")
@@ -70,7 +79,7 @@ class WarningSEApp(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Error",
-                    f"No data found for {ticker}. Check spelling or internet connection."
+                    f"No data found for {tickers[0]}. Check spelling or internet connection."
                 )
                 return
 
@@ -91,7 +100,7 @@ class WarningSEApp(QtWidgets.QDialog):
 
             print("Data processed successfully. Ready to run.")
 
-            QtWidgets.QMessageBox.information(self, "Success", f"Downloaded {len(prices)} days for {ticker}")
+            QtWidgets.QMessageBox.information(self, "Success", f"Downloaded {len(prices)} days for {tickers[0]}")
             self.btn_execute.setEnabled(True)
 
         except Exception as e:
