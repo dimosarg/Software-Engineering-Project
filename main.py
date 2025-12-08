@@ -30,6 +30,7 @@ class WarningSEApp(QtWidgets.QDialog):
         self.btn_execute.clicked.connect(self.execute_script)
         # Export graph to image
         self.btn_export.clicked.connect(self.export_plot)
+        print("hello")
 
         # VARIABLES
         self.data = None
