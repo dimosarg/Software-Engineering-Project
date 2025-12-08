@@ -56,7 +56,7 @@ class WarningSEApp(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", "Please enter a ticker symbol (e.g. AAPL)")
             return
 
-        try:adfasd
+        try:
             print(f"--- Starting download for: {ticker} ---")
 
             # 2. Download
@@ -104,41 +104,70 @@ class WarningSEApp(QtWidgets.QDialog):
             "Data files (*.npy *.csv *.xlsx *.xls);;Numpy (*.npy);;CSV (*.csv);;Excel (*.xlsx *.xls)"
         )
 
-        if file_path:
-            self.csv_txt_input.setText(file_path)
+        if not file_path:
+            return  # User cancelled
 
-            try:
-                # CASE A: NumPy (.npy)
-                if file_path.endswith('.npy'):
-                    self.data = np.load(file_path, allow_pickle=True)
+        self.csv_txt_input.setText(file_path)
 
-                # CASE B: Table files (CSV, Excel)
+        try:
+            # ---------------------------
+            # CASE A: NumPy (.npy)
+            # ---------------------------
+            if file_path.endswith('.npy'):
+                self.data = np.load(file_path, allow_pickle=True)
+
+                # Check NaNs AFTER loading
+                if np.isnan(self.data).any():
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Invalid Data",
+                        "The .npy file contains empty or invalid values (NaN). Please clean the data and try again."
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
+
+            # ---------------------------
+            # CASE B: CSV / Excel
+            # ---------------------------
+            else:
+                if file_path.endswith('.csv'):
+                    df = pd.read_csv(file_path)
                 else:
-                    if file_path.endswith('.csv'):
-                        df = pd.read_csv(file_path)
-                    elif file_path.endswith(('.xlsx', '.xls')):
-                        df = pd.read_excel(file_path)
+                    df = pd.read_excel(file_path)
 
-                    # Column selection logic
-                    if 'Close' in df.columns:
-                        prices = df['Close'].values
-                    elif 'Adj Close' in df.columns:
-                        prices = df['Adj Close'].values
-                    elif len(df.columns) > 1:
-                        prices = df.iloc[:, 1].values
-                    else:
-                        prices = df.iloc[:, 0].values
+                # Column selection logic
+                if 'Close' in df.columns:
+                    prices = df['Close'].values
+                elif 'Adj Close' in df.columns:
+                    prices = df['Adj Close'].values
+                elif len(df.columns) > 1:
+                    prices = df.iloc[:, 1].values
+                else:
+                    prices = df.iloc[:, 0].values
 
-                    prices = prices[~pd.isna(prices)]
-                    indices = np.arange(len(prices))
-                    self.data = np.column_stack((indices, prices))
+                # Check NaNs in prices
+                if np.isnan(prices).any():
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Invalid Data",
+                        "The selected file contains empty or invalid values (NaN). Please clean the dataset."
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
 
-                print(f"File loaded: {file_path}")
-                self.btn_execute.setEnabled(True)
+                prices = prices[~pd.isna(prices)]
+                indices = np.arange(len(prices))
+                self.data = np.column_stack((indices, prices))
 
-            except Exception as e:
-                print(f"Error loading file: {e}")
-                QtWidgets.QMessageBox.critical(self, "Error", f"Could not read file: {str(e)}")
+            print(f"File loaded: {file_path}")
+            self.btn_execute.setEnabled(True)
+
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            QtWidgets.QMessageBox.critical(self, "Error", f"Could not read file: {str(e)}")
+
 
     def execute_script(self):
         # Original logic intact
