@@ -17,7 +17,7 @@ class WarningSEApp(QtWidgets.QDialog):
         # Load interface
         uic.loadUi(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'warningSE.ui'), self)
 
-        # Disable buttons at start
+        # Disable buttons at the start
         self.btn_execute.setEnabled(False)
         self.btn_export.setEnabled(False)
 
@@ -30,7 +30,6 @@ class WarningSEApp(QtWidgets.QDialog):
         self.btn_execute.clicked.connect(self.execute_script)
         # Export graph to image
         self.btn_export.clicked.connect(self.export_plot)
-        print("hello")
 
         # VARIABLES
         self.data = None
@@ -42,6 +41,7 @@ class WarningSEApp(QtWidgets.QDialog):
         self.toolbar = None
         self.original_data_col = None
         self.original_labels = None
+         
 
         # Layout for the plot
         if self.plot_view_result.layout() is None:
@@ -67,8 +67,11 @@ class WarningSEApp(QtWidgets.QDialog):
             print(f"Data dimensions: {df.shape}")
 
             if df.empty:
-                QtWidgets.QMessageBox.warning(self, "Error",
-                                              f"No data found for {ticker}. Check spelling or internet connection.")
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"No data found for {ticker}. Check spelling or internet connection."
+                )
                 return
 
             # 3. Clean data
@@ -111,33 +114,55 @@ class WarningSEApp(QtWidgets.QDialog):
         self.csv_txt_input.setText(file_path)
 
         try:
-            # ---------------------------
+            # -------------------------------------------------------
             # CASE A: NumPy (.npy)
-            # ---------------------------
+            # -------------------------------------------------------
             if file_path.endswith('.npy'):
                 self.data = np.load(file_path, allow_pickle=True)
 
-                # Check NaNs AFTER loading
-                if np.isnan(self.data).any():
-                    QtWidgets.QMessageBox.warning(
+                # Extract the price column (assumes it is the second column, index 1)
+                # and forces conversion to float. This fails if a non-numeric string exists.
+                try:
+                    prices = self.data[:, 1].astype(float)
+                except ValueError as ve:
+                    # Catch conversion error if a non-numeric string is found
+                    QtWidgets.QMessageBox.critical(
                         self,
-                        "Invalid Data",
-                        "The .npy file contains empty or invalid values (NaN). Please clean the data and try again."
+                        "Data Type Error",
+                        f"One or more price values are not valid numbers in column 2. Original error: {str(ve)}"
                     )
                     self.data = None
                     self.btn_execute.setEnabled(False)
                     return
 
-            # ---------------------------
+                # Check for NaNs in the price column
+                if np.isnan(prices).any():
+                    # Filter and display rows containing NaN
+                    nan_positions = np.argwhere(np.isnan(prices))
+
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Invalid Data",
+                        f"The .npy file contains NaN values in the price column (row index):\n{nan_positions.tolist()}"
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
+
+                # Reconstruct self.data with only numeric columns (index and price)
+                indices = np.arange(len(prices))
+                self.data = np.column_stack((indices, prices))
+
+            # -------------------------------------------------------
             # CASE B: CSV / Excel
-            # ---------------------------
+            # -------------------------------------------------------
             else:
                 if file_path.endswith('.csv'):
                     df = pd.read_csv(file_path)
                 else:
                     df = pd.read_excel(file_path)
 
-                # Column selection logic
+                # Select price column
                 if 'Close' in df.columns:
                     prices = df['Close'].values
                 elif 'Adj Close' in df.columns:
@@ -147,17 +172,20 @@ class WarningSEApp(QtWidgets.QDialog):
                 else:
                     prices = df.iloc[:, 0].values
 
-                # Check NaNs in prices
-                if np.isnan(prices).any():
+                # Detect NaN rows
+                nan_rows = np.where(pd.isna(prices))[0]
+
+                if len(nan_rows) > 0:
                     QtWidgets.QMessageBox.warning(
                         self,
                         "Invalid Data",
-                        "The selected file contains empty or invalid values (NaN). Please clean the dataset."
+                        f"The selected file contains empty or invalid values (NaN) in the following rows:\n{(nan_rows + 1).tolist()}"
                     )
                     self.data = None
                     self.btn_execute.setEnabled(False)
                     return
 
+                # Remove NaNs and construct array
                 prices = prices[~pd.isna(prices)]
                 indices = np.arange(len(prices))
                 self.data = np.column_stack((indices, prices))
@@ -169,14 +197,46 @@ class WarningSEApp(QtWidgets.QDialog):
             print(f"Error loading file: {e}")
             QtWidgets.QMessageBox.critical(self, "Error", f"Could not read file: {str(e)}")
 
-
     def execute_script(self):
         # Original logic intact
         if self.data is not None:
             data_col = self.data[:, 1:2]
+            try:
+                # Get text from input fields
+                lookbackField = int(self.loockback_txtField.text())
+                multiplierField = float(self.multiplier_txtField.text())
 
-            # Call your calcs module
-            self.labels = calcs.calculations(data=data_col, std_multiplier=2.5)
+            except ValueError:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Input",
+                    "Please enter valid numbers. Lookback must be an integer."
+                )
+                return
+
+            # Validate positive values
+            if lookbackField <= 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Lookback",
+                    "Lookback must be a positive integer."
+                )
+                return
+
+            if multiplierField < 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Multiplier",
+                    "Multiplier must be zero or positive."
+                )
+                return
+
+            # Call your calculation module
+            self.labels = calcs.calculations(
+                data=data_col,
+                lookback_period=lookbackField,
+                std_multiplier=multiplierField
+            )
 
             # Clear previous graph
             if self.canvas is not None:
@@ -190,8 +250,10 @@ class WarningSEApp(QtWidgets.QDialog):
             # Create new plot
             self.figure = Figure()
             self.canvas = FigureCanvas(self.figure)
-            self.canvas.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
-                                      QtWidgets.QSizePolicy.Expanding)
+            self.canvas.setSizePolicy(
+                QtWidgets.QSizePolicy.Expanding,
+                QtWidgets.QSizePolicy.Expanding
+            )
             self.plot_view_result.layout().addWidget(self.canvas)
 
             self.toolbar = NavigationToolbar(self.canvas, self)
@@ -211,22 +273,20 @@ class WarningSEApp(QtWidgets.QDialog):
         x_data = np.arange(len(data_col))
 
         # 1. PLOT PRICE LINE (Trend)
-        # We use plot instead of scatter to connect the points
         ax.plot(x_data, data_col, color='#1f77b4', linewidth=1.5, label='Price History', alpha=0.8)
 
         # 2. PLOT ONLY OUTLIERS (Red Points)
-        # Filter to get only the indices where label == 1
         outlier_mask = labels.flatten() == 1
 
-        if np.any(outlier_mask):  # Only plot if there are outliers
+        if np.any(outlier_mask):
             ax.scatter(
                 x_data[outlier_mask],
                 data_col[outlier_mask],
                 color='red',
-                s=60,  # Larger size to make them stand out
-                edgecolor='black',  # Black edge for contrast
+                s=60,
+                edgecolor='black',
                 label='Anomaly / Outlier',
-                zorder=5  # Ensures points stay ON TOP of the line
+                zorder=5
             )
 
         # 3. FINANCIAL STYLING
@@ -234,7 +294,6 @@ class WarningSEApp(QtWidgets.QDialog):
         ax.set_ylabel("Price ($)")
         ax.set_xlabel("Time (Days)")
 
-        # Add grid, essential for reading stock charts
         ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey', alpha=0.5)
 
         ax.legend()
