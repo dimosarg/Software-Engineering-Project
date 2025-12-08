@@ -56,7 +56,7 @@ class WarningSEApp(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", "Please enter a ticker symbol (e.g. AAPL)")
             return
 
-        try:
+        try:adfasd
             print(f"--- Starting download for: {ticker} ---")
 
             # 2. Download
