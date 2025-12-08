@@ -1,16 +1,11 @@
-WarningSE: Financial Outlier Detection
-WarningSE is a Python-based desktop application designed to analyze time-series data (specifically financial stocks) and detect statistical outliers. Built with PyQt5 for the interface and Matplotlib for visualization, it allows users to easily identify anomalies in price history.
+# WarningSE: Financial Outlier Detection Tool
 
-🚀 Key Features
-Yahoo Finance Integration: Download real-time stock data directly by entering a ticker symbol (e.g., AAPL, TSLA).
+**WarningSE** is a desktop application designed to analyze financial time-series data and detect statistical outliers (anomalies). Built with **Python** and **PyQt5**, it offers a user-friendly interface to visualize stock price evolution and automatically highlight irregular price movements.
 
-Local Data Support: Import your own datasets using .csv, .npy, .xlsx, or .xls formats.
+## 🚀 Features
 
-Visual Analysis: Interactive graph showing price trends with outliers highlighted in red.
-
-Export Capabilities: Save your analysis graphs as high-quality PNG images.
-
-User-Friendly GUI: Clean interface with simple controls for data loading and execution.
-
-🛠️ Installation & Prerequisites
-To run this application, you need Python installed on your system. You also need to install the specific libraries used in the source code.
+* **Dual Data Import:**
+    * **Yahoo Finance API:** Directly download historical stock data by entering a ticker symbol (e.g., AAPL, TSLA).
+    * **Local Files:** Import your own datasets via CSV, Excel (`.xlsx`), or NumPy (`.npy`) files.
+* **Interactive Visualization:** Renders high-quality plots using Matplotlib within the GUI.
+* **Anomaly Detection:** Automatically identifies and highlights outliers in red based on statistical deviation
