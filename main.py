@@ -136,13 +136,277 @@ class WarningSEApp(QtWidgets.QDialog):
                 print(f"Error loading file: {e}")
                 QtWidgets.QMessageBox.critical(self, "Error", f"Could not read file: {str(e)}")
 
+    
+
+    def export_plot(self):
+        if self.figure is not None:
+            file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Save image", "scatter.png", "PNG files (*.png)"
+            )
+            if file_path:
+                self.figure.savefig(file_path)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.canvas is not None:
+            self.canvas.draw()
+
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    window = WarningSEApp()
+    window.show()
+    sys.exit(app.exec_())
+import sys
+import os
+import numpy as np
+import pandas as pd
+import yfinance as yf
+from PyQt5 import QtWidgets, uic
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+import calcs
+
+
+class WarningSEApp(QtWidgets.QDialog):
+    def __init__(self):
+        super().__init__()
+
+        # Load interface
+        uic.loadUi(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'warningSE.ui'), self)
+
+        # Disable buttons at the start
+        self.btn_execute.setEnabled(False)
+        self.btn_export.setEnabled(False)
+
+        # BUTTON CONNECTIONS
+        # Load CSV/NPY file
+        self.csv_button_input.clicked.connect(self.load_file)
+        # Download from Yahoo Finance
+        self.btn_generate_values.clicked.connect(self.download_data_from_yahoo)
+        # Execute algorithm
+        self.btn_execute.clicked.connect(self.execute_script)
+        # Export graph to image
+        self.btn_export.clicked.connect(self.export_plot)
+
+        # VARIABLES
+        self.data = None
+        self.labels = None
+
+        # Plot variables
+        self.figure = None
+        self.canvas = None
+        self.toolbar = None
+        self.original_data_col = None
+        self.original_labels = None
+         
+
+        # Layout for the plot
+        if self.plot_view_result.layout() is None:
+            self.plot_view_result.setLayout(QtWidgets.QVBoxLayout())
+
+    def download_data_from_yahoo(self):
+        """Robust download method compatible with new yfinance versions"""
+        
+        # 1. Read ticker
+        
+        #ticker = self.data_collection.text().strip().upper()
+        tickers_text = self.data_collection.text().strip().upper()
+        if not tickers_text:
+            QtWidgets.QMessageBox.warning(self, "Error", "Please enter a ticker symbol (e.g. AAPL)")
+            return
+        
+        tickers = tickers_text.replace(',', ' ').split()
+        unique_tickers = set(tickers)
+        print(len(tickers))
+        count = len(unique_tickers)
+        if count > 1:
+            QtWidgets.QMessageBox.warning(self,"The amount of tickers is more than 1"f' :{len(tickers)}', f'Using: {tickers[0]}')
+
+        try:
+            print(f"--- Starting download for: {tickers[0]} ---")
+
+            # 2. Download
+            df = yf.download(tickers[0], period="1y", interval="1d", progress=False, auto_adjust=True)
+
+            print("Download completed by yfinance.")
+            print(f"Data dimensions: {df.shape}")
+
+            if df.empty:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"No data found for {tickers[0]}. Check spelling or internet connection."
+                )
+                return
+
+            # 3. Clean data
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+
+            # Ensure we have a price column
+            if 'Close' not in df.columns:
+                print("Column 'Close' not found, using first available column.")
+                prices = df.iloc[:, 0].values.flatten()
+            else:
+                prices = df['Close'].values.flatten()
+
+            # 4. Create structure for the algorithm
+            indices = np.arange(len(prices))
+            self.data = np.column_stack((indices, prices))
+
+            print("Data processed successfully. Ready to run.")
+
+            QtWidgets.QMessageBox.information(self, "Success", f"Downloaded {len(prices)} days for {tickers[0]}")
+            self.btn_execute.setEnabled(True)
+
+        except Exception as e:
+            print(f"CRITICAL ERROR: {e}")
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to download: {str(e)}")
+
+    def load_file(self):
+        """Load files and show path in csv_txt_input"""
+
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select file",
+            "",
+            "Data files (*.npy *.csv *.xlsx *.xls);;Numpy (*.npy);;CSV (*.csv);;Excel (*.xlsx *.xls)"
+        )
+
+        if not file_path:
+            return  # User cancelled
+
+        self.csv_txt_input.setText(file_path)
+
+        try:
+            # -------------------------------------------------------
+            # CASE A: NumPy (.npy)
+            # -------------------------------------------------------
+            if file_path.endswith('.npy'):
+                self.data = np.load(file_path, allow_pickle=True)
+
+                # Extract the price column (assumes it is the second column, index 1)
+                # and forces conversion to float. This fails if a non-numeric string exists.
+                try:
+                    prices = self.data[:, 1].astype(float)
+                except ValueError as ve:
+                    # Catch conversion error if a non-numeric string is found
+                    QtWidgets.QMessageBox.critical(
+                        self,
+                        "Data Type Error",
+                        f"One or more price values are not valid numbers in column 2. Original error: {str(ve)}"
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
+
+                # Check for NaNs in the price column
+                if np.isnan(prices).any():
+                    # Filter and display rows containing NaN
+                    nan_positions = np.argwhere(np.isnan(prices))
+
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Invalid Data",
+                        f"The .npy file contains NaN values in the price column (row index):\n{nan_positions.tolist()}"
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
+
+                # Reconstruct self.data with only numeric columns (index and price)
+                indices = np.arange(len(prices))
+                self.data = np.column_stack((indices, prices))
+
+            # -------------------------------------------------------
+            # CASE B: CSV / Excel
+            # -------------------------------------------------------
+            else:
+                if file_path.endswith('.csv'):
+                    df = pd.read_csv(file_path)
+                else:
+                    df = pd.read_excel(file_path)
+
+                # Select price column
+                if 'Close' in df.columns:
+                    prices = df['Close'].values
+                elif 'Adj Close' in df.columns:
+                    prices = df['Adj Close'].values
+                elif len(df.columns) > 1:
+                    prices = df.iloc[:, 1].values
+                else:
+                    prices = df.iloc[:, 0].values
+
+                # Detect NaN rows
+                nan_rows = np.where(pd.isna(prices))[0]
+
+                if len(nan_rows) > 0:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Invalid Data",
+                        f"The selected file contains empty or invalid values (NaN) in the following rows:\n{(nan_rows + 1).tolist()}"
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
+
+                # Remove NaNs and construct array
+                prices = prices[~pd.isna(prices)]
+                indices = np.arange(len(prices))
+                self.data = np.column_stack((indices, prices))
+
+            print(f"File loaded: {file_path}")
+            self.btn_execute.setEnabled(True)
+
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            QtWidgets.QMessageBox.critical(self, "Error", f"Could not read file: {str(e)}")
+
     def execute_script(self):
+        # Original logic intact
         if self.data is not None:
             data_col = self.data[:, 1:2]
 
-            self.my_data = calcs.clean_data(data = data_col) 
+            self.my_data = calcs.clean_data(data = data_col)
 
-            self.labels, self.upper, self.bottom = calcs.calculations(data=data_col, std_multiplier=2.5)
+            try:
+                # Get text from input fields
+                lookbackField = int(self.loockback_txtField.text())
+                multiplierField = float(self.multiplier_txtField.text())
+
+            except ValueError:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Input",
+                    "Please enter valid numbers. Lookback must be an integer."
+                )
+                return
+
+            # Validate positive values
+            if lookbackField <= 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Lookback",
+                    "Lookback must be a positive integer."
+                )
+                return
+
+            if multiplierField < 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Multiplier",
+                    "Multiplier must be zero or positive."
+                )
+                return
+
+            # Call your calculation module
+            self.labels = calcs.calculations(
+                data=data_col,
+                lookback_period=lookbackField,
+                std_multiplier=multiplierField
+            )
 
             # Clear previous graph
             if self.canvas is not None:
@@ -156,8 +420,10 @@ class WarningSEApp(QtWidgets.QDialog):
             # Create new plot
             self.figure = Figure()
             self.canvas = FigureCanvas(self.figure)
-            self.canvas.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
-                                      QtWidgets.QSizePolicy.Expanding)
+            self.canvas.setSizePolicy(
+                QtWidgets.QSizePolicy.Expanding,
+                QtWidgets.QSizePolicy.Expanding
+            )
             self.plot_view_result.layout().addWidget(self.canvas)
 
             self.toolbar = NavigationToolbar(self.canvas, self)
@@ -170,31 +436,29 @@ class WarningSEApp(QtWidgets.QDialog):
             self.btn_export.setEnabled(True)
 
     def plot_data(self, data_col, labels):
+        """Helper function to plot the financial line chart with outlier alerts"""
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
         x_data = np.arange(len(data_col))
 
         # 1. PLOT PRICE LINE (Trend)
-        # We use plot instead of scatter to connect the points
         ax.plot(x_data, data_col, color='#1f77b4', linewidth=1.5, label='Price History', alpha=0.8)
-        # Plot of buffer zones
-        ax.plot(x_data, self.upper, color= '#72bf6a', linewidth=1, label='Upper buffer zone', alpha=0.4)
-        ax.plot(x_data, self.bottom, color= '#ED2939', linewidth=1, label='Bottom buffer zone', alpha=0.4)
+
+        
 
         # 2. PLOT ONLY OUTLIERS (Red Points)
-        # Filter to get only the indices where label == 1
         outlier_mask = labels.flatten() == 1
 
-        if np.any(outlier_mask):  # Only plot if there are outliers
+        if np.any(outlier_mask):
             ax.scatter(
                 x_data[outlier_mask],
                 data_col[outlier_mask],
                 color='red',
-                s=60,  # Larger size to make them stand out
-                edgecolor='black',  # Black edge for contrast
+                s=60,
+                edgecolor='black',
                 label='Anomaly / Outlier',
-                zorder=5  # Ensures points stay ON TOP of the line
+                zorder=5
             )
 
         # 3. FINANCIAL STYLING
@@ -202,7 +466,6 @@ class WarningSEApp(QtWidgets.QDialog):
         ax.set_ylabel("Price ($)")
         ax.set_xlabel("Time (Days)")
 
-        # Add grid, essential for reading stock charts
         ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey', alpha=0.5)
 
         ax.legend()
