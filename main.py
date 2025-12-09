@@ -129,38 +129,8 @@ class WarningSEApp(QtWidgets.QDialog):
             if file_path.endswith('.npy'):
                 self.data = np.load(file_path, allow_pickle=True)
 
-                # Extract the price column (assumes it is the second column, index 1)
-                # and forces conversion to float. This fails if a non-numeric string exists.
-                try:
-                    prices = self.data[:, 1].astype(float)
-                except ValueError as ve:
-                    # Catch conversion error if a non-numeric string is found
-                    QtWidgets.QMessageBox.critical(
-                        self,
-                        "Data Type Error",
-                        f"One or more price values are not valid numbers in column 2. Original error: {str(ve)}"
-                    )
-                    self.data = None
-                    self.btn_execute.setEnabled(False)
-                    return
-
-                # Check for NaNs in the price column
-                if np.isnan(prices).any():
-                    # Filter and display rows containing NaN
-                    nan_positions = np.argwhere(np.isnan(prices))
-
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Invalid Data",
-                        f"The .npy file contains NaN values in the price column (row index):\n{nan_positions.tolist()}"
-                    )
-                    self.data = None
-                    self.btn_execute.setEnabled(False)
-                    return
-
-                # Reconstruct self.data with only numeric columns (index and price)
-                indices = np.arange(len(prices))
-                self.data = np.column_stack((indices, prices))
+                # Attempt to extract price column
+                raw_prices = self.data[:, 1].astype(str)
 
             # -------------------------------------------------------
             # CASE B: CSV / Excel
@@ -173,33 +143,101 @@ class WarningSEApp(QtWidgets.QDialog):
 
                 # Select price column
                 if 'Close' in df.columns:
-                    prices = df['Close'].values
+                    raw_prices = df['Close'].astype(str).values
                 elif 'Adj Close' in df.columns:
-                    prices = df['Adj Close'].values
+                    raw_prices = df['Adj Close'].astype(str).values
                 elif len(df.columns) > 1:
-                    prices = df.iloc[:, 1].values
+                    raw_prices = df.iloc[:, 1].astype(str).values
                 else:
-                    prices = df.iloc[:, 0].values
+                    raw_prices = df.iloc[:, 0].astype(str).values
 
-                # Detect NaN rows
-                nan_rows = np.where(pd.isna(prices))[0]
+            # -------------------------------------------------------
+            # STEP 1 — Detect invalid (non-numeric) values
+            # -------------------------------------------------------
+            invalid_indices = []
+            clean_prices = []
 
-                if len(nan_rows) > 0:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Invalid Data",
-                        f"The selected file contains empty or invalid values (NaN) in the following rows:\n{(nan_rows + 1).tolist()}"
-                    )
+            for i, val in enumerate(raw_prices):
+                try:
+                    clean_prices.append(float(val))
+                except ValueError:
+                    invalid_indices.append(i)
+                    clean_prices.append(np.nan)
+
+            clean_prices = np.array(clean_prices, dtype=float)
+
+            # If invalid (text) values exist → ask user
+            if len(invalid_indices) > 0:
+                msg = QtWidgets.QMessageBox(self)
+                msg.setWindowTitle("Invalid Values Detected")
+                msg.setIcon(QtWidgets.QMessageBox.Warning)
+                msg.setText(
+                    "The file contains invalid (non-numeric) values in these rows:\n"
+                    f"{[i + 1 for i in invalid_indices]}\n\n"
+                    "What would you like to do?"
+                )
+
+                btn_delete = msg.addButton("Delete these rows", QtWidgets.QMessageBox.AcceptRole)
+                btn_fill = msg.addButton("Replace with 0", QtWidgets.QMessageBox.ActionRole)
+                btn_cancel = msg.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+
+                msg.exec_()
+                clicked = msg.clickedButton()
+
+                if clicked == btn_cancel:
                     self.data = None
                     self.btn_execute.setEnabled(False)
                     return
 
-                # Remove NaNs and construct array
-                prices = prices[~pd.isna(prices)]
-                indices = np.arange(len(prices))
-                self.data = np.column_stack((indices, prices))
+                elif clicked == btn_delete:
+                    clean_prices = np.delete(clean_prices, invalid_indices)
 
-            print(f"File loaded: {file_path}")
+                elif clicked == btn_fill:
+                    clean_prices = np.nan_to_num(clean_prices, nan=0.0)
+
+            prices = clean_prices
+
+            # -------------------------------------------------------
+            # STEP 2 — Detect NaN values (after cleaning text)
+            # -------------------------------------------------------
+            nan_rows = np.where(pd.isna(prices))[0]
+
+            if len(nan_rows) > 0:
+                msg = QtWidgets.QMessageBox(self)
+                msg.setWindowTitle("Missing Values Detected")
+                msg.setIcon(QtWidgets.QMessageBox.Warning)
+
+                msg.setText(
+                    f"The file contains missing values (NaN) in these rows:\n"
+                    f"{(nan_rows + 1).tolist()}\n\n"
+                    "What would you like to do?"
+                )
+
+                btn_delete = msg.addButton("Delete rows", QtWidgets.QMessageBox.AcceptRole)
+                btn_fill = msg.addButton("Fill with 0", QtWidgets.QMessageBox.ActionRole)
+                btn_cancel = msg.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+
+                msg.exec_()
+                clicked = msg.clickedButton()
+
+                if clicked == btn_cancel:
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                    return
+
+                elif clicked == btn_delete:
+                    prices = prices[~pd.isna(prices)]
+
+                elif clicked == btn_fill:
+                    prices = np.nan_to_num(prices, nan=0.0)
+
+            # -------------------------------------------------------
+            # Step 3 — Build final numeric data structure
+            # -------------------------------------------------------
+            indices = np.arange(len(prices))
+            self.data = np.column_stack((indices, prices))
+
+            print(f"File loaded successfully: {file_path}")
             self.btn_execute.setEnabled(True)
 
         except Exception as e:
