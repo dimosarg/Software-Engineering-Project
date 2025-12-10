@@ -1,168 +1,10 @@
-# import sys
-# import os
-# import numpy as np
-# import pandas as pd
-# import yfinance as yf
-# from PyQt5 import QtWidgets, uic
-# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-# from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-# from matplotlib.figure import Figure
-# import calcs
-
-
-# class WarningSEApp(QtWidgets.QDialog):
-#     def __init__(self):
-#         super().__init__()
-
-#         # Load interface
-#         uic.loadUi(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'warningSE.ui'), self)
-
-#         # Disable buttons at start
-#         self.btn_execute.setEnabled(False)
-#         self.btn_export.setEnabled(False)
-
-#         # BUTTON CONNECTIONS
-#         # Load CSV/NPY file
-#         self.csv_button_input.clicked.connect(self.load_file)
-#         # Download from Yahoo Finance
-#         self.btn_generate_values.clicked.connect(self.download_data_from_yahoo)
-#         # Execute algorithm
-#         self.btn_execute.clicked.connect(self.execute_script)
-#         # Export graph to image
-#         self.btn_export.clicked.connect(self.export_plot)
-
-#         # VARIABLES
-#         self.data = None
-#         self.labels = None
-
-#         # Plot variables
-#         self.figure = None
-#         self.canvas = None
-#         self.toolbar = None
-#         self.original_data_col = None
-#         self.original_labels = None
-
-#         # Layout for the plot
-#         if self.plot_view_result.layout() is None:
-#             self.plot_view_result.setLayout(QtWidgets.QVBoxLayout())
-
-#     def download_data_from_yahoo(self):
-#         # 1. Read ticker
-#         ticker = self.data_collection.text().strip().upper()
-
-#         if not ticker:
-#             QtWidgets.QMessageBox.warning(self, "Error", "Please enter a ticker symbol (e.g. AAPL)")
-#             return
-
-#         try:
-#             print(f"--- Starting download for: {ticker} ---")
-
-#             # 2. Download
-#             df = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
-
-#             print("Download completed by yfinance.")
-#             print(f"Data dimensions: {df.shape}")
-
-#             if df.empty:
-#                 QtWidgets.QMessageBox.warning(self, "Error",
-#                                               f"No data found for {ticker}. Check spelling or internet connection.")
-#                 return
-
-#             # 3. Clean data
-#             if isinstance(df.columns, pd.MultiIndex):
-#                 df.columns = df.columns.get_level_values(0)
-
-#             # Ensure we have a price column
-#             if 'Close' not in df.columns:
-#                 print("Column 'Close' not found, using first available column.")
-#                 prices = df.iloc[:, 0].values.flatten()
-#             else:
-#                 prices = df['Close'].values.flatten()
-
-#             # 4. Create structure for the algorithm
-#             indices = np.arange(len(prices))
-#             self.data = np.column_stack((indices, prices))
-
-#             print("Data processed successfully. Ready to run.")
-
-#             QtWidgets.QMessageBox.information(self, "Success", f"Downloaded {len(prices)} days for {ticker}")
-#             self.btn_execute.setEnabled(True)
-
-#         except Exception as e:
-#             print(f"CRITICAL ERROR: {e}")
-#             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to download: {str(e)}")
-
-#     def load_file(self):
-#         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-#             self,
-#             "Select file",
-#             "",
-#             "Data files (*.npy *.csv *.xlsx *.xls);;Numpy (*.npy);;CSV (*.csv);;Excel (*.xlsx *.xls)"
-#         )
-
-#         if file_path:
-#             self.csv_txt_input.setText(file_path)
-
-#             try:
-#                 # CASE A: NumPy (.npy)
-#                 if file_path.endswith('.npy'):
-#                     self.data = np.load(file_path, allow_pickle=True)
-
-#                 # CASE B: Table files (CSV, Excel)
-#                 else:
-#                     if file_path.endswith('.csv'):
-#                         df = pd.read_csv(file_path)
-#                     elif file_path.endswith(('.xlsx', '.xls')):
-#                         df = pd.read_excel(file_path)
-
-#                     # Column selection logic
-#                     if 'Close' in df.columns:
-#                         prices = df['Close'].values
-#                     elif 'Adj Close' in df.columns:
-#                         prices = df['Adj Close'].values
-#                     elif len(df.columns) > 1:
-#                         prices = df.iloc[:, 1].values
-#                     else:
-#                         prices = df.iloc[:, 0].values
-
-#                     prices = prices[~pd.isna(prices)]
-#                     indices = np.arange(len(prices))
-#                     self.data = np.column_stack((indices, prices))
-
-#                 print(f"File loaded: {file_path}")
-#                 self.btn_execute.setEnabled(True)
-
-#             except Exception as e:
-#                 print(f"Error loading file: {e}")
-#                 QtWidgets.QMessageBox.critical(self, "Error", f"Could not read file: {str(e)}")
-
-    
-
-#     def export_plot(self):
-#         if self.figure is not None:
-#             file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-#                 self, "Save image", "scatter.png", "PNG files (*.png)"
-#             )
-#             if file_path:
-#                 self.figure.savefig(file_path)
-
-#     def resizeEvent(self, event):
-#         super().resizeEvent(event)
-#         if self.canvas is not None:
-#             self.canvas.draw()
-
-
-# if __name__ == "__main__":
-#     app = QtWidgets.QApplication(sys.argv)
-#     window = WarningSEApp()
-#     window.show()
-#     sys.exit(app.exec_())
 import sys
 import os
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from PyQt5 import QtWidgets, uic
+from PyQt5.QtCore import QDir
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -326,9 +168,17 @@ class WarningSEApp(QtWidgets.QDialog):
             else:
                 if file_path.endswith('.csv'):
                     df = pd.read_csv(file_path)
-                else:
+                elif file_path.endswith('.xlsx') or file_path.endswith('.xls'):
                     df = pd.read_excel(file_path)
-
+                else:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Invalid Format",
+                        f"The selected file does not have the correct format. Please try again with another file"
+                    )
+                    self.data = None
+                    self.btn_execute.setEnabled(False)
+                
                 # Select price column
                 if 'Close' in df.columns:
                     prices = df['Close'].values
@@ -339,21 +189,17 @@ class WarningSEApp(QtWidgets.QDialog):
                 else:
                     prices = df.iloc[:, 0].values
 
-                # Detect NaN rows
+                # Detect and delete NaN and 0 rows
                 nan_rows = np.where(pd.isna(prices))[0]
+                prices, _ = calcs.clean_data(data = prices)
 
                 if len(nan_rows) > 0:
                     QtWidgets.QMessageBox.warning(
                         self,
                         "Invalid Data",
-                        f"The selected file contains empty or invalid values (NaN) in the following rows:\n{(nan_rows + 1).tolist()}"
+                        f"The selected file contains empty or invalid values (NaN) in the following rows:\n{(nan_rows + 1).tolist()}\nValues are now deleted"
                     )
-                    self.data = None
-                    self.btn_execute.setEnabled(False)
-                    return
-
-                # Remove NaNs and construct array
-                prices = prices[~pd.isna(prices)]
+                    
                 indices = np.arange(len(prices))
                 self.data = np.column_stack((indices, prices))
 
