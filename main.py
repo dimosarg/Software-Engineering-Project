@@ -31,7 +31,9 @@ class WarningSEApp(QtWidgets.QDialog):
         self.btn_execute.clicked.connect(self.execute_script)
         # Export graph to image
         self.btn_export.clicked.connect(self.export_plot)
-
+        # Checkbox
+        self.zero_checkbox.toggled.connect(self.get_checkbox_value)
+        
         # VARIABLES
         self.data = None
         self.labels = None
@@ -47,6 +49,14 @@ class WarningSEApp(QtWidgets.QDialog):
         # Layout for the plot
         if self.plot_view_result.layout() is None:
             self.plot_view_result.setLayout(QtWidgets.QVBoxLayout())
+
+    def get_checkbox_value(self):
+        if self.zero_checkbox.isChecked():
+            keep_zeros = True
+        else:
+            keep_zeros = False
+
+        return keep_zeros
 
     def download_data_from_yahoo(self):
         """Robust download method compatible with new yfinance versions"""
@@ -192,13 +202,15 @@ class WarningSEApp(QtWidgets.QDialog):
                 msg.exec_()
                 clicked = msg.clickedButton()
 
+                keep_zeros = self.get_checkbox_value()
+
                 if clicked == btn_cancel:
                     self.data = None
                     self.btn_execute.setEnabled(False)
                     return
 
                 elif clicked == btn_delete:
-                    clean_prices = np.delete(clean_prices, invalid_indices)
+                    clean_prices,_ = calcs.clean_data(clean_prices, keep_zeros=keep_zeros)
 
                 elif clicked == btn_fill:
                     clean_prices = np.nan_to_num(clean_prices, nan=0.0)
@@ -228,13 +240,15 @@ class WarningSEApp(QtWidgets.QDialog):
                 msg.exec_()
                 clicked = msg.clickedButton()
 
+                keep_zeros = self.get_checkbox_value()
+
                 if clicked == btn_cancel:
                     self.data = None
                     self.btn_execute.setEnabled(False)
                     return
 
                 elif clicked == btn_delete:
-                    prices = prices[~pd.isna(prices)]
+                    prices,_ = calcs.clean_data(prices,keep_zeros=keep_zeros)
 
                 elif clicked == btn_fill:
                     prices = np.nan_to_num(prices, nan=0.0)
@@ -254,10 +268,13 @@ class WarningSEApp(QtWidgets.QDialog):
 
     def execute_script(self):
         # Original logic intact
+
+        keep_zeros = self.get_checkbox_value()
+
         if self.data is not None:
             data_col = self.data[:, 1:2]
 
-            self.my_data = calcs.clean_data(data = data_col)
+            self.my_data,_ = calcs.clean_data(data = data_col, keep_zeros=keep_zeros)
 
             try:
                 # Get text from input fields

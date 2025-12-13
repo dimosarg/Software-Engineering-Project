@@ -39,7 +39,7 @@ def calculations(data:np, lookback_period=14, std_multiplier=2):
 
     return outlier_index, upper_bound, lower_bound
 
-def clean_data(data:np):
+def clean_data(data:np,keep_zeros):
 
     #Conversion to pandas DataFrame
     my_data = pd.DataFrame(data)
@@ -52,9 +52,10 @@ def clean_data(data:np):
     print(f"Deleted data from NaN values: {my_data_len-len(my_data)}\n")
 
     #Check for 0
-    my_data_len = len(my_data)
-    no_zeros_mask = (my_data != 0).all(axis=1)
-    my_data = my_data[no_zeros_mask]
-    print(f"Deleted data from 0 values: {my_data_len-len(my_data)}\n")
+    if keep_zeros==False:
+        my_data_len = len(my_data)
+        no_zeros_mask = (my_data != 0).all(axis=1)
+        my_data = my_data[no_zeros_mask]
+        print(f"Deleted data from 0 values: {my_data_len-len(my_data)}\n")
 
     return my_data.to_numpy(), my_data_len_one-my_data_len
