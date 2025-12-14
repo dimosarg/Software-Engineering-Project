@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 from PyQt5 import QtWidgets, uic
-from PyQt5.QtCore import QDir
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
