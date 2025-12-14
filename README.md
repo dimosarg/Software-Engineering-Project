@@ -16,13 +16,21 @@ A desktop application designed to analyze financial time-series data and automat
 
 ---
 
-## 📦 Installation & Setup
+## 📥 How to Install & Run
 
-### 1. Prerequisites
-Ensure you have Python 3.8 or higher installed on your system.
+### Method 1: The Easy Way (No Python Required)
+If you just want to use the app without installing anything:
+1. Go to the **[Releases](../../releases)** page of this repository.
+2. Download the latest `main.exe` file.
+3. Double-click to run. (Note: Windows may flag it as "Unverified"—this is normal for new apps. Click "More Info" > "Run Anyway").
 
-### 2. Install Dependencies
-You need to install the required Python libraries to run the application. Open your terminal or command prompt and run:
+### Method 2: For Developers (Run from Source)
+If you want to modify the code or run it via Python:
 
+#### 1. Prerequisites
+Ensure you have [Python 3.8+](https://www.python.org/downloads/) installed.
+
+#### 2. Clone the Repository
 ```bash
-pip install numpy pandas yfinance PyQt5 matplotlib openpyxl
+git clone [https://github.com/YourUsername/YourRepoName.git](https://github.com/YourUsername/YourRepoName.git)
+cd YourRepoName
