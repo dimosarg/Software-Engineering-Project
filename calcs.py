@@ -37,7 +37,9 @@ def calculations(data:np, lookback_period=14, std_multiplier=2):
     # 2. Keep only where the difference is exactly 1 (the rising edge)
     outlier_index = (diff == 1)
 
-    return outlier_index, upper_bound, lower_bound
+    boundaries = True
+
+    return outlier_index, upper_bound, lower_bound, boundaries
 
 def clean_data(data:np,keep_zeros):
 
@@ -59,3 +61,39 @@ def clean_data(data:np,keep_zeros):
         print(f"Deleted data from 0 values: {my_data_len-len(my_data)}\n")
 
     return my_data.to_numpy(), my_data_len_one-my_data_len
+
+
+def kalman_filters(data:np, outlier_threshold, process_noise=0.01, measurement_noise=1.0):
+
+    x_est = data[0]
+    cov = 1.0
+
+    outlier_index = np.zeros(len(data))
+
+
+    for z in range(len(data)):
+        x_pred = x_est
+        cov_pred = cov + process_noise
+
+        dif = data[z] - x_pred
+        dif_cov = cov_pred + measurement_noise
+
+        std = np.sqrt(dif_cov)
+        z_score = np.abs(dif/std)
+
+        if z_score >= outlier_threshold:
+            outlier_index[z] = 1
+            x_new = x_pred
+            cov_new = cov_pred
+
+        else:
+            kalman_gain = cov_pred / dif_cov
+            x_new = x_pred + kalman_gain * dif
+            cov_new = (1 - kalman_gain) * cov_pred
+
+        x_est = x_new
+        cov = cov_new
+
+    boundaries = False
+
+    return outlier_index,  boundaries

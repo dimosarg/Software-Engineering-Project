@@ -26,7 +26,7 @@ class WarningSEApp(QtWidgets.QDialog):
 
         # --- UPDATED LINE BELOW ---
         # Use resource_path to find the UI file inside the EXE
-        ui_file = resource_path('warningSE.ui')
+        ui_file = resource_path('Exercise3\\Software-Engineering-Project\\warningSE.ui')
         uic.loadUi(ui_file, self)
         # --------------------------
 
@@ -325,7 +325,7 @@ class WarningSEApp(QtWidgets.QDialog):
                 return
 
             # Call your calculation module
-            self.labels, self.upper, self.bottom = calcs.calculations(
+            self.labels, self.upper, self.bottom, boundaries = calcs.calculations(
                 data=data_col,
                 lookback_period=lookbackField,
                 std_multiplier=multiplierField
@@ -355,10 +355,94 @@ class WarningSEApp(QtWidgets.QDialog):
             self.original_data_col = data_col
             self.original_labels = self.labels
 
-            self.plot_data(self.original_data_col, self.original_labels)
+            self.plot_data(self.original_data_col, self.original_labels, boundaries)
             self.btn_export.setEnabled(True)
 
-    def plot_data(self, data_col, labels):
+    def execute_kalman_script(self):
+        # Original logic intact
+
+        keep_zeros = self.get_checkbox_value()
+
+        if self.data is not None:
+            data_col = self.data[:, 1:2]
+
+            self.my_data,_ = calcs.clean_data(data = data_col, keep_zeros=keep_zeros)
+
+            try:
+                # Get text from input fields
+                outl_thresh = int(self.outlier_txtField.text())
+                pr_noise = int(self.loockback_txtField.text())
+                meas_noise = float(self.multiplier_txtField.text())
+
+            except ValueError:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Input",
+                    "Please enter valid numbers. Lookback must be an integer."
+                )
+                return
+
+            # Validate positive values
+            if outl_thresh <= 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Outlier Threshold",
+                    "Outlier Threshold must be a positive integer."
+                )
+                return
+
+            if pr_noise <= 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Lookback",
+                    "Lookback must be a positive integer."
+                )
+                return
+
+            if meas_noise < 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Multiplier",
+                    "Multiplier must be zero or positive."
+                )
+                return
+
+            # Call your calculation module
+            self.labels, self.upper, self.bottom, boundaries = calcs.kalman_filters(
+                data=data_col,
+                outlier_threshold=outl_thresh,
+                process_noise=pr_noise, 
+                measurement_noise=meas_noise
+            )
+
+            # Clear previous graph
+            if self.canvas is not None:
+                for i in reversed(range(self.plot_view_result.layout().count())):
+                    widget_to_remove = self.plot_view_result.layout().itemAt(i).widget()
+                    if widget_to_remove is not None:
+                        widget_to_remove.setParent(None)
+                self.canvas = None
+                self.toolbar = None
+
+            # Create new plot
+            self.figure = Figure()
+            self.canvas = FigureCanvas(self.figure)
+            self.canvas.setSizePolicy(
+                QtWidgets.QSizePolicy.Expanding,
+                QtWidgets.QSizePolicy.Expanding
+            )
+            self.plot_view_result.layout().addWidget(self.canvas)
+
+            self.toolbar = NavigationToolbar(self.canvas, self)
+            self.plot_view_result.layout().addWidget(self.toolbar)
+
+            self.original_data_col = data_col
+            self.original_labels = self.labels
+
+            self.plot_data(self.original_data_col, self.original_labels, boundaries)
+            self.btn_export.setEnabled(True)
+
+    def plot_data(self, data_col, labels, boundaries):
         """Helper function to plot the financial line chart with outlier alerts"""
         self.figure.clear()
         ax = self.figure.add_subplot(111)
@@ -369,8 +453,9 @@ class WarningSEApp(QtWidgets.QDialog):
         ax.plot(x_data, data_col, color='#1f77b4', linewidth=1.5, label='Price History', alpha=0.8)
 
         # Plot boundaries
-        ax.plot(x_data,self.upper, color='#32CD32', linewidth=1, label='Upper boundary', alpha=0.4)
-        ax.plot(x_data,self.bottom, color='#e10000', linewidth=1, label='Bottom boundary', alpha=0.4)
+        if boundaries == True:
+            ax.plot(x_data,self.upper, color='#32CD32', linewidth=1, label='Upper boundary', alpha=0.4)
+            ax.plot(x_data,self.bottom, color='#e10000', linewidth=1, label='Bottom boundary', alpha=0.4)
         
         # 2. PLOT ONLY OUTLIERS (Red Points)
         outlier_mask = labels.flatten() == 1
