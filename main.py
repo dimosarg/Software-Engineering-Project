@@ -36,6 +36,12 @@ class WarningSEApp(QtWidgets.QDialog):
     #     # Load interface
     #     uic.loadUi(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'warningSE.ui'), self)
 
+        self.comboBox.addItem("STD based")
+        self.comboBox.addItem("Kalman filters")
+
+        # 2. Set "STD based" as default (Index 0)
+        self.comboBox.setCurrentIndex(0)
+
         # Disable buttons at the start
         self.btn_execute.setEnabled(False)
         self.btn_export.setEnabled(False)
@@ -46,7 +52,7 @@ class WarningSEApp(QtWidgets.QDialog):
         # Download from Yahoo Finance
         self.btn_generate_values.clicked.connect(self.download_data_from_yahoo)
         # Execute algorithm
-        self.btn_execute.clicked.connect(self.execute_script)
+        self.btn_execute.clicked.connect(self.execute_script_main)
         # Export graph to image
         self.btn_export.clicked.connect(self.export_plot)
         # Checkbox
@@ -358,6 +364,86 @@ class WarningSEApp(QtWidgets.QDialog):
             self.plot_data(self.original_data_col, self.original_labels, boundaries)
             self.btn_export.setEnabled(True)
 
+    def execute_script_main(self):
+        keep_zeros = self.get_checkbox_value()
+
+        if self.data is not None:
+            data_col = self.data[:, 1:2]
+            self.my_data, _ = calcs.clean_data(data=data_col, keep_zeros=keep_zeros)
+
+            # 1. Get the selected algorithm
+            selected_algo = self.comboBox.currentText()
+
+            try:
+                # Get text from input fields (Shared inputs)
+                # We treat loockback_txtField as Input 1 and multiplier_txtField as Input 2
+                input1 = int(self.loockback_txtField.text())
+                input2 = float(self.multiplier_txtField.text())
+
+            except ValueError:
+                QtWidgets.QMessageBox.warning(self, "Invalid Input", "Please enter valid numbers.")
+                return
+
+            # 2. Branch Logic based on ComboBox
+            if selected_algo == "STD based":
+                # Validation for STD inputs
+                if input1 <= 0 or input2 < 0:
+                    QtWidgets.QMessageBox.warning(self, "Invalid Input", "Lookback > 0, Multiplier >= 0")
+                    return
+
+                # Call STD calculation
+                # Returns 4 values: labels, upper, bottom, boundaries
+                self.labels, self.upper, self.bottom, boundaries = calcs.calculations(
+                    data=data_col,
+                    lookback_period=input1,
+                    std_multiplier=input2
+                )
+
+            elif selected_algo == "Kalman filters":
+                # Validation for Kalman inputs (mapped based on your execute_kalman_script logic)
+                # input1 = measurement_noise, input2 = outlier_threshold
+                if input1 < 0 or input2 <= 0:
+                    QtWidgets.QMessageBox.warning(self, "Invalid Input", "Noise >= 0, Threshold > 0")
+                    return
+
+                # Call Kalman calculation
+                # Returns only 2 values: labels, boundaries (See calcs.py)
+                self.labels, boundaries = calcs.kalman_filters(
+                    data=data_col,
+                    outlier_threshold=input2,
+                    measurement_noise=input1
+                )
+                
+                # Kalman doesn't return bands in your calcs.py, so we set them to None
+                self.upper = None
+                self.bottom = None
+
+            # 3. Graphing Logic (Shared)
+            # Clear previous graph
+            if self.canvas is not None:
+                for i in reversed(range(self.plot_view_result.layout().count())):
+                    widget_to_remove = self.plot_view_result.layout().itemAt(i).widget()
+                    if widget_to_remove is not None:
+                        widget_to_remove.setParent(None)
+                self.canvas = None
+                self.toolbar = None
+
+            # Create new plot
+            self.figure = Figure()
+            self.canvas = FigureCanvas(self.figure)
+            self.canvas.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+            self.plot_view_result.layout().addWidget(self.canvas)
+
+            self.toolbar = NavigationToolbar(self.canvas, self)
+            self.plot_view_result.layout().addWidget(self.toolbar)
+
+            self.original_data_col = data_col
+            self.original_labels = self.labels
+
+            # Plot data (Works for both because boundaries=False for Kalman)
+            self.plot_data(self.original_data_col, self.original_labels, boundaries)
+            self.btn_export.setEnabled(True)
+
     def execute_kalman_script(self):
         # Original logic intact
 
@@ -370,9 +456,8 @@ class WarningSEApp(QtWidgets.QDialog):
 
             try:
                 # Get text from input fields
-                outl_thresh = int(self.outlier_txtField.text())
-                pr_noise = int(self.loockback_txtField.text())
-                meas_noise = float(self.multiplier_txtField.text())
+                meas_noise = int(self.loockback_txtField.text())
+                outl_thresh = float(self.multiplier_txtField.text())
 
             except ValueError:
                 QtWidgets.QMessageBox.warning(
@@ -391,14 +476,6 @@ class WarningSEApp(QtWidgets.QDialog):
                 )
                 return
 
-            if pr_noise <= 0:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Invalid Lookback",
-                    "Lookback must be a positive integer."
-                )
-                return
-
             if meas_noise < 0:
                 QtWidgets.QMessageBox.warning(
                     self,
@@ -410,8 +487,7 @@ class WarningSEApp(QtWidgets.QDialog):
             # Call your calculation module
             self.labels, self.upper, self.bottom, boundaries = calcs.kalman_filters(
                 data=data_col,
-                outlier_threshold=outl_thresh,
-                process_noise=pr_noise, 
+                outlier_threshold=outl_thresh, 
                 measurement_noise=meas_noise
             )
 

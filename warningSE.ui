@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>880</width>
-    <height>624</height>
+    <height>630</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -162,7 +162,7 @@
         </font>
        </property>
        <property name="text">
-        <string>Lockback: </string>
+        <string>Lookback/Threshold: </string>
        </property>
       </widget>
      </item>
@@ -183,7 +183,7 @@
         </font>
        </property>
        <property name="text">
-        <string>Sensitiviy multiplier: </string>
+        <string>Sensitiviy:</string>
        </property>
       </widget>
      </item>
@@ -193,6 +193,9 @@
         <string>e.g. 1, 1.5, 2, 2.5, etc...</string>
        </property>
       </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox"/>
      </item>
      <item>
       <widget class="QLabel" name="label_8">

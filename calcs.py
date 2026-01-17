@@ -63,10 +63,12 @@ def clean_data(data:np,keep_zeros):
     return my_data.to_numpy(), my_data_len_one-my_data_len
 
 
-def kalman_filters(data:np, outlier_threshold, process_noise=0.01, measurement_noise=1.0):
+def kalman_filters(data:np, outlier_threshold, measurement_noise=1.0):
 
     x_est = data[0]
     cov = 1.0
+
+    process_noise = measurement_noise/100
 
     outlier_index = np.zeros(len(data))
 
