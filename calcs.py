@@ -68,7 +68,7 @@ def kalman_filters(data:np, outlier_threshold, measurement_noise=1.0):
     x_est = data[0]
     cov = 1.0
 
-    process_noise = measurement_noise/100
+    process_noise = measurement_noise/10
 
     outlier_index = np.zeros(len(data))
 
